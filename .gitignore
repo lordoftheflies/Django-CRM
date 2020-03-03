@@ -15,7 +15,9 @@ ref.css
 ref.css.map
 .coverage
 crm/dev_settings\.py
-env
+.env
 docs/build
 celerybeat-schedule
 local_settings.py
+
+coverage.xml
