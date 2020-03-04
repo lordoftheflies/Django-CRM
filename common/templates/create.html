@@ -111,7 +111,7 @@
               <div class="form-group">
                 <label for="exampleInputEmail1">Permissions <span class="error">*</span></label>
                 <br>
-                <!-- {{user_form.sales}} -->
+                
                 <div class="btn-group">
                   <label class="btn "> Sales
                     <input type="checkbox" name="has_sales_access" id="has_sales_access_" autocomplete="off"
@@ -136,7 +136,7 @@
               <div class="form-group">
                 <label for="exampleInputEmail1">Team {% if user_form.teams.field.required %}<span
                     class="error">*</span>{% endif %}</label>
-                <!-- {{user_form.teams}} -->
+                
                 <select name="teams" id="id_teams" multiple>
                   {% for team in teams %}
                   <option value="{{team.id}}" {% if team in user_obj.user_teams.all %} selected {% endif %}>
@@ -175,8 +175,6 @@
 </form>
 {% endblock content %}
 {% block js_block %}
-<script src="https://malsup.github.io/jquery.form.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js"></script>
 <script type="text/javascript">
   $("#id_teams").select2();
 

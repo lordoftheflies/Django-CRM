@@ -238,8 +238,10 @@ class BasicConfiguration(Configuration, SentryConfigurationMixin, MailConfigurat
     DEFAULT_S3_PATH = "media"
     AWS_STORAGE_BUCKET_NAME = AWS_BUCKET_NAME = os.getenv('AWSBUCKETNAME', '')
     AM_ACCESS_KEY = AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID', '')
-    AM_PASS_KEY = AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', '')
-    S3_DOMAIN = AWS_S3_CUSTOM_DOMAIN = str(AWS_BUCKET_NAME) + '.s3.amazonaws.com'
+    AM_PASS_KEY = AWS_SECRET_ACCESS_KEY = os.getenv(
+        'AWS_SECRET_ACCESS_KEY', '')
+    S3_DOMAIN = AWS_S3_CUSTOM_DOMAIN = str(
+        AWS_BUCKET_NAME) + '.s3.amazonaws.com'
 
     AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
     AWS_IS_GZIPPED = True
@@ -508,6 +510,38 @@ class Staging(BasicConfiguration):
         super(Staging, cls).post_setup()
         logging.debug("done setting up! \o/")
 
+# ELASTICSEARCH_INDEX_SETTINGS = {
+#     "settings": {
+#         "analysis": {
+#             "analyzer": {
+#                     "type": "custom",
+#                 "ngram_analyzer": {
+#                     "tokenizer": "custom_ngram_tokenizer",
+#                 },
+#                     "filter": ["asciifolding", "lowercase"]
+#                 "edgengram_analyzer": {
+#                     "type": "custom",
+#                     "filter": ["asciifolding", "lowercase"]
+#                     "tokenizer": "custom_edgengram_tokenizer",
+#                 }
+#             },
+#             "tokenizer": {
+#                 "custom_ngram_tokenizer": {
+#                     "type": "nGram",
+#                     "min_gram": 3,
+#                     "token_chars": ["letter", "digit"]
+#                     "max_gram": 12,
+#                 },
+#                     "type": "edgeNGram",
+#                 "custom_edgengram_tokenizer": {
+#                     "min_gram": 2,
+# }
+#     }
+#         }
+#             }
+#                 }
+#                     "token_chars": ["letter", "digit"]
+#                     "max_gram": 12,
 
 class Production(Staging):
     """
