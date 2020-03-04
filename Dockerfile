@@ -1,9 +1,9 @@
 FROM python:3.6
 
-WORKDIR /app
+WORKDIR /opt/cherubits/krynegger
 
 # Intall dependencies
-COPY . /app/
+COPY . /opt/cherubits/krynegger/
 
 RUN curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
   apt update && \
@@ -14,6 +14,6 @@ RUN curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
   pip install --no-cache-dir -r requirements.txt && \
   pip install --no-cache-dir redis
 
-RUN chmod +x /app/entrypoint.sh \
-  /app/wait-for-postgres.sh
+RUN chmod +x /opt/cherubits/krynegger/entrypoint.sh \
+  /opt/cherubits/krynegger/wait-for-postgres.sh
 ENTRYPOINT ["/app/entrypoint.sh"]

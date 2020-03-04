@@ -1,5 +1,11 @@
-Python 3.5.2:
-    script:
+
+stages:
+  - install
+  - test
+
+install:
+  stage: test
+  script:
     - export PY_EXE=python3.5.2
     - virtualenv -p python3 env
     - source env/bin/activate
@@ -7,27 +13,27 @@ Python 3.5.2:
     - python manage.py test --keepdb --parallel --noinput
     - coverage run --source=accounts,cases,common,contacts,leads,opportunity,tasks,invoices,events,teams,marketing manage.py test --keepdb --noinput
     - coverage report -m
-    except:
+  except:
     - tags
 
-deploy_mp:
-  stage: deploy
+deploy_staging:
+  stage: staging
   environment:
-    name: live
+    name: staging
   script:
-    - sudo /bin/rm -rf /home/dj_crm/dj_crm/; cp -r . /home/dj_crm/dj_crm
-    - source /home/dj_crm/env/bin/activate
-    - pip install -r /home/dj_crm/dj_crm/requirements.txt
-    - python /home/dj_crm/dj_crm/manage.py migrate --noinput
-    - sudo /etc/init.d/uwsgi restart
+    - sudo /bin/rm -rf /opt/cherubits/krynegger/; cp -r . /opt/cherubits/krynegger
+    - source /opt/krynegger/.env/bin/activate
+    - pip install -r /opt/cherubits/krynegger/requirements.txt
+    - python /opt/cherubits/krynegger/manage.py migrate --noinput
+    - sudo systemctl restart uwsgi.service
     - sudo /usr/bin/supervisorctl restart all
   only:
     - master
   tags:
-    - djcrm_micropyramid
+    - laki-studio
 
-deploy_live:
-  stage: deploy
+deploy_production:
+  stage: production
   environment:
     name: live
   script:
@@ -41,4 +47,4 @@ deploy_live:
   only:
     - master
   tags:
-    - github-crm
+    - cherubits

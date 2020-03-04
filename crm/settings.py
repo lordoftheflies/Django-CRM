@@ -1,161 +1,241 @@
+import logging
 import os
+
 from celery.schedules import crontab
+from configurations import Configuration, values
+from django.core import validators
 
-# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# SECURITY WARNING: keep the secret key used in production secret!
-# Set in local_settings.py
-SECRET_KEY = 'SECRET_SECRET_SECRET'
+class URIValue(values.ValidationMixin, values.Value):
+    message = 'Cannot interpret URL value {0!r}'
+    validator = validators.URLValidator(schemes=[
+        'http', 'https',
+        'ftp', 'ftps',
+        'ldap', 'ldaps',
+        'smtp', 'smtps',
+        'redis',
+        'postgres',
+    ])
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG_STATUS', True)
 
-ALLOWED_HOSTS = ['*']
+class SentryConfigurationMixin(object):
+    SENTRY_ENABLED = values.BooleanValue(False)
 
-# Application definition
+    @property
+    def SENTRY_INSTALLED_APPS(self) -> list:
+        return [
+            'raven.contrib.django.raven_compat',
+        ]
 
-LOGIN_REDIRECT_URL = '/'
+    @property
+    def RAVEN_CONFIG(self) -> dict:
+        return dict(dsn=os.getenv('SENTRYDSN', ''))
 
-LOGIN_URL = '/login/'
+    @property
+    def SENTRY_MIDDLEWARE(self):
+        return [
+            'raven.contrib.django.raven_compat.middleware.Sentry404CatchMiddleware',
+            'raven.contrib.django.raven_compat.middleware.SentryResponseErrorIdMiddleware',
+        ]
 
-INSTALLED_APPS = [
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.messages',
-    'django.contrib.sessions',
-    'django.contrib.staticfiles',
-    'simple_pagination',
-    'compressor',
-    # 'haystack',
-    'common',
-    'accounts',
-    'cases',
-    'contacts',
-    'emails',
-    'leads',
-    'opportunity',
-    'planner',
-    'sorl.thumbnail',
-    'phonenumber_field',
-    'storages',
-    'marketing',
-    'tasks',
-    'invoices',
-    'events',
-    'teams',
-]
 
-MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-]
+class MailConfigurationMixin(object):
+    MAIL_SENDER = 'AMAZON'
+    INACTIVE_MAIL_SENDER = 'MANDRILL'
 
-ROOT_URLCONF = 'crm.urls'
+    MGUN_API_URL = os.getenv('MGUN_API_URL', '')
+    MGUN_API_KEY = os.getenv('MGUN_API_KEY', '')
 
-TEMPLATES = [
-    {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, "templates"), ],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-            ],
+    SG_USER = os.getenv('SG_USER', '')
+    SG_PWD = os.getenv('SG_PWD', '')
+
+    MANDRILL_API_KEY = os.getenv('MANDRILL_API_KEY', '')
+
+    ADMIN_EMAIL = "admin@micropyramid.com"
+
+    URL_FOR_LINKS = "http://demo.django-crm.io"
+
+    GP_CLIENT_ID = os.getenv('GP_CLIENT_ID', False)
+    GP_CLIENT_SECRET = os.getenv('GP_CLIENT_SECRET', False)
+    ENABLE_GOOGLE_LOGIN = os.getenv('ENABLE_GOOGLE_LOGIN', False)
+
+    MARKETING_REPLY_EMAIL = 'djangocrm@micropyramid.com'
+
+    PASSWORD_RESET_TIMEOUT_DAYS = 3
+
+
+class CeleryConfigurationMixin(object):
+    # celery Tasks
+    CELERY_BROKER_URL = URIValue('redis://localhost:6379')
+    CELERY_RESULT_BACKEND = URIValue('redis://localhost:6379')
+
+    CELERY_BEAT_SCHEDULE = {
+        "runs-campaign-for-every-thiry-minutes": {
+            "task": "marketing.tasks.run_all_campaigns",
+            "schedule": crontab(minute=30, hour='*')
         },
-    },
-]
-
-WSGI_APPLICATION = 'crm.wsgi.application'
-
-# Database
-# https://docs.djangoproject.com/en/1.10/ref/settings/#databases
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'dj_crm',
-        'USER': 'postgres',
-        'PASSWORD': 'root',
-        'HOST': os.getenv('DB_HOST', '127.0.0.1'),
-        'PORT': os.getenv('DB_PORT', '5432')
+        "runs-campaign-for-every-five-minutes": {
+            "task": "marketing.tasks.list_all_bounces_unsubscribes",
+            "schedule": crontab(minute='*/5')
+        },
+        "runs-scheduled-campaigns-for-every-one-hour": {
+            "task": "marketing.tasks.send_scheduled_campaigns",
+            "schedule": crontab(hour='*/1')
+        },
+        "runs-scheduled-emails-for-accounts-every-one-minute": {
+            "task": "accounts.tasks.send_scheduled_emails",
+            "schedule": crontab(minute='*/1')
+        }
     }
-}
-
-STATICFILES_DIRS = [os.path.join(BASE_DIR, "static"), ]
-
-# Password validation
-# https://docs.djangoproject.com/en/1.10/ref/settings/#auth-password-validators
-
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
-]
-
-# Internationalization
-# https://docs.djangoproject.com/en/1.10/topics/i18n/
-
-LANGUAGE_CODE = 'en-us'
-
-TIME_ZONE = 'Asia/Kolkata'
-
-USE_I18N = True
-
-USE_L10N = True
-
-USE_TZ = True
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/1.10/howto/static-files/
-
-STATIC_URL = '/static/'
-
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_BACKEND = 'django.core.mail.backends.dummy.EmailBackend'
-# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-
-# EMAIL_HOST = 'localhost'
-# EMAIL_PORT = 25
-# AUTHENTICATION_BACKENDS = ('django.contrib.auth.backends.ModelBackend', )
 
 
-EMAIL_HOST = 'smtp.sendgrid.net'
-EMAIL_HOST_USER = os.getenv('SG_USER', '')
-EMAIL_HOST_PASSWORD = os.getenv('SG_PWD', '')
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
+class BasicConfiguration(Configuration, SentryConfigurationMixin, MailConfigurationMixin, CeleryConfigurationMixin):
+    """
+    Basic CRM configuration, which satisfying the [ISO-27001](https://google.com), [ISO-270018](https://google.com),
+    [SOC:AICPAA](https://google.com), and  [HIPAA](https://google.com) standards.
+    """
 
-AUTH_USER_MODEL = 'common.User'
+    DEBUG = values.BooleanValue(False)
 
-STORAGE_TYPE = os.getenv('STORAGE_TYPE', 'normal')
+    # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
+    BASE_DIR = values.PathValue(
+        default=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        check_exists=True,
+        environ_prefix='KRYNEGGER'
+    )
 
-if STORAGE_TYPE == 'normal':
-    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-    MEDIA_URL = '/media/'
+    SECRET_KEY = values.SecretValue(environ_prefix='KRYNEGGER')
 
-    STATIC_URL = '/static/'
-    STATICFILES_DIRS = (BASE_DIR + '/static',)
-    COMPRESS_ROOT = BASE_DIR + '/static/'
+    ALLOWED_HOSTS = [
+        '*'
+    ]
 
-elif STORAGE_TYPE == 's3-storage':
+    # Application definition
+    LOGIN_REDIRECT_URL = values.PathValue('/', check_exists=False, )
+    LOGIN_URL = values.PathValue('/login/', check_exists=False, )
 
+    PLATFORM_INSTALLED_APPS = [
+        'django.contrib.auth',
+        'django.contrib.contenttypes',
+        'django.contrib.messages',
+        'django.contrib.sessions',
+        'django.contrib.staticfiles',
+        'simple_pagination',
+        'compressor',
+        'haystack',
+        'common',
+        'accounts',
+        'cases',
+        'contacts',
+        'emails',
+        'leads',
+        'opportunity',
+        'planner',
+        'sorl.thumbnail',
+        'phonenumber_field',
+        'storages',
+        'marketing',
+        'tasks',
+        'invoices',
+        'events',
+        'teams',
+    ]
+
+    # Password validation
+    # https://docs.djangoproject.com/en/1.10/ref/settings/#auth-password-validators
+    AUTH_PASSWORD_VALIDATORS = [
+        {
+            'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        },
+        {
+            'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        },
+        {
+            'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        },
+        {
+            'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        },
+    ]
+
+    PLATFORM_MIDDLEWARE = [
+        'django.middleware.security.SecurityMiddleware',
+        'django.middleware.common.CommonMiddleware',
+        'django.contrib.sessions.middleware.SessionMiddleware',
+        'django.contrib.auth.middleware.AuthenticationMiddleware',
+        'django.contrib.messages.middleware.MessageMiddleware',
+        'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    ]
+
+    TEMPLATES = [
+        {
+            'BACKEND': 'django.template.backends.django.DjangoTemplates',
+            'DIRS': [os.path.join(BASE_DIR.value, "templates"), ],
+            'APP_DIRS': True,
+            'OPTIONS': {
+                'context_processors': [
+                    'django.template.context_processors.debug',
+                    'django.template.context_processors.request',
+                    'django.contrib.auth.context_processors.auth',
+                    'django.contrib.messages.context_processors.messages',
+                ],
+            },
+        },
+    ]
+
+    ROOT_URLCONF = 'crm.urls'
+    WSGI_APPLICATION = 'crm.wsgi.application'
+
+    # Database
+    # https://docs.djangoproject.com/en/1.10/ref/settings/#databases
+    # DATABASES = {
+    #     'default': {
+    #         'ENGINE': 'django.db.backends.postgresql',
+    #         'NAME': 'dj_crm',
+    #         'USER': 'postgres',
+    #         'PASSWORD': 'root',
+    #         'HOST': os.getenv('DB_HOST', '127.0.0.1'),
+    #         'PORT': os.getenv('DB_PORT', '5432')
+    #     }
+    # }
+    DATABASES = values.DatabaseURLValue(
+        default='postgres://krynegger:qwe123@localhost/krynegger_database',
+        environ_name='DATABASES',
+        environ_prefix='KRYNEGGER'
+    )
+    # DATABASES = dict(
+    #     default=dj_database_url.config(
+    #         env='KRYNEGGER_DATABASE_PRIMARY_URL',
+    #         default='postgres://krynegger:qwe123@localhost/krynegger_database'
+    #     )
+    # )
+
+    # Internationalization
+    # https://docs.djangoproject.com/en/1.10/topics/i18n/
+    LANGUAGE_CODE = values.Value('en-us', environ_prefix='KRYNEGGER')
+    TIME_ZONE = values.Value('Europe/Budapest', environ_prefix='KRYNEGGER')
+    USE_I18N = values.BooleanValue(True, environ_prefix='KRYNEGGER')
+    USE_L10N = values.BooleanValue(True, environ_prefix='KRYNEGGER')
+    USE_TZ = values.BooleanValue(True, environ_prefix='KRYNEGGER')
+
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    # EMAIL_BACKEND = 'django.core.mail.backends.dummy.EmailBackend'
+    # EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+    # EMAIL_HOST = 'localhost'
+    # EMAIL_PORT = 25
+    # AUTHENTICATION_BACKENDS = ('django.contrib.auth.backends.ModelBackend', )
+
+    EMAIL_HOST = values.Value('aspmx.l.google.com', environ_prefix='KRYNEGGER')
+    EMAIL_HOST_USER = values.Value('laszlo.hegedus@cherubits.hu', environ_prefix='KRYNEGGER')
+    EMAIL_HOST_PASSWORD = values.Value('Armageddon43254325', environ_prefix='KRYNEGGER')
+    EMAIL_PORT = values.IntegerValue(587, environ_prefix='KRYNEGGER')
+    EMAIL_USE_TLS = True
+    DEFAULT_FROM_EMAIL = 'no-reply@crm.cherubits.hu'
+
+    AUTH_USER_MODEL = 'common.User'
+
+    DEFAULT_S3_PATH = "media"
     AWS_STORAGE_BUCKET_NAME = AWS_BUCKET_NAME = os.getenv('AWSBUCKETNAME', '')
     AM_ACCESS_KEY = AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID', '')
     AM_PASS_KEY = AWS_SECRET_ACCESS_KEY = os.getenv(
@@ -163,241 +243,322 @@ elif STORAGE_TYPE == 's3-storage':
     S3_DOMAIN = AWS_S3_CUSTOM_DOMAIN = str(
         AWS_BUCKET_NAME) + '.s3.amazonaws.com'
 
-    AWS_S3_OBJECT_PARAMETERS = {
-        'CacheControl': 'max-age=86400',
-    }
-
-    STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-    DEFAULT_S3_PATH = "media"
-    STATICFILES_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
-    STATIC_S3_PATH = "static"
-    COMPRESS_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
-
-    COMPRESS_CSS_FILTERS = [
-        'compressor.filters.css_default.CssAbsoluteFilter', 'compressor.filters.cssmin.CSSMinFilter']
-    COMPRESS_JS_FILTERS = ['compressor.filters.jsmin.JSMinFilter']
-    COMPRESS_REBUILD_TIMEOUT = 5400
-
-    MEDIA_ROOT = '/%s/' % DEFAULT_S3_PATH
-    MEDIA_URL = '//%s/%s/' % (S3_DOMAIN, DEFAULT_S3_PATH)
-    STATIC_ROOT = "/%s/" % STATIC_S3_PATH
-    STATIC_URL = 'https://%s/' % (S3_DOMAIN)
-    ADMIN_MEDIA_PREFIX = STATIC_URL + 'admin/'
-
-    CORS_ORIGIN_ALLOW_ALL = True
-
+    AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
     AWS_IS_GZIPPED = True
     AWS_ENABLED = True
     AWS_S3_SECURE_URLS = True
+    # STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    STATICFILES_STORAGE = 'storages.backends.ftp.FTPStorage'
+    DEFAULT_FILE_STORAGE = 'storages.backends.ftp.FTPStorage'
+    FTP_STORAGE_LOCATION = 'ftp://lordoftheflies:Armageddon0@localhost:21'
+    # FTP_STORAGE_ENCODING = 'uft-8'
+    # DEFAULT_FILE_STORAGE = 'storages.backends.sftpstorage.SFTPStorage'
+    STATIC_S3_PATH = "static"
 
-COMPRESS_ROOT = BASE_DIR + '/static/'
+    AWS_REGION = os.getenv('AWS_REGION', '')
 
-COMPRESS_ENABLED = True
+    # Currently 'normal' and 's3' storage implemented.
+    STORAGE_TYPE = values.Value(
+        default='normal',
+        environ_name='STORAGE_TYPE',
+        environ_prefix='KRYNEGGER'
+    )
 
-COMPRESS_OFFLINE_CONTEXT = {
-    'STATIC_URL': 'STATIC_URL',
-}
+    # Static files (CSS, JavaScript, Images)
+    # https://docs.djangoproject.com/en/1.10/howto/static-files/
+    @property
+    def STATIC_ROOT(self):
+        if self.STORAGE_TYPE == 's3':
+            return "/%s/" % STATIC_S3_PATH
+        else:
+            return values.PathValue(
+                default=os.path.join(self.BASE_DIR, 'static'),
+                environ_name='STATIC_ROOT',
+                environ_prefix='KRYNEGGER'
+            )
 
-STATICFILES_FINDERS = (
-    'django.contrib.staticfiles.finders.FileSystemFinder',
-    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
-    'compressor.finders.CompressorFinder',
-)
+    @property
+    def STATIC_URL(self) -> str:
+        if self.STORAGE_TYPE == 's3':
+            return 'https://%s/' % (self.S3_DOMAIN)
+        else:
+            return values.Value(
+                default='/static/',
+                # check_exists=False,
+                environ_name='STATIC_URL',
+                environ_prefix='KRYNEGGER'
+            )
 
-COMPRESS_CSS_FILTERS = [
-    'compressor.filters.css_default.CssAbsoluteFilter', 'compressor.filters.cssmin.CSSMinFilter']
-COMPRESS_REBUILD_TIMEOUT = 5400
+    @property
+    def STATICFILES_DIRS(self) -> list:
+        if self.STORAGE_TYPE == 's3':
+            return [self.BASE_DIR + '/static']
+        else:
+            return values.ListValue(
+                default=[
+                ],
+                environ_name='STATICFILES_DIRS',
+                environ_prefix='KRYNEGGER'
+            )
 
-COMPRESS_OUTPUT_DIR = 'CACHE'
-COMPRESS_URL = STATIC_URL
+    STATICFILES_FINDERS = [
+        'django.contrib.staticfiles.finders.FileSystemFinder',
+        'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+        'compressor.finders.CompressorFinder',
+    ]
 
-COMPRESS_PRECOMPILERS = (
-    ('text/less', 'lessc {infile} {outfile}'),
-    ('text/x-sass', 'sass {infile} {outfile}'),
-    ('text/x-scss', 'sass {infile} {outfile}'),
-)
+    @property
+    def MEDIA_ROOT(self) -> str:
+        if self.STORAGE_TYPE == 's3':
+            return '/%s/' % self.DEFAULT_S3_PATH
+        else:
+            return values.PathValue(
+                default=os.path.join(self.BASE_DIR, 'media'),
+                environ_name='MEDIA_ROOT',
+                environ_prefix='KRYNEGGER'
+            )
 
-COMPRESS_OFFLINE_CONTEXT = {
-    'STATIC_URL': 'STATIC_URL',
-}
+    @property
+    def MEDIA_URL(self) -> str:
+        if self.STORAGE_TYPE == 's3':
+            return '//%s/%s/' % (self.S3_DOMAIN, self.DEFAULT_S3_PATH)
+        else:
+            return values.Value(
+                default='/media/',
+                environ_name='MEDIA_URL',
+                environ_prefix='KRYNEGGER'
+            )
 
-DEFAULT_FROM_EMAIL = 'no-reply@django-crm.micropyramid.com'
+    @property
+    def ADMIN_MEDIA_PREFIX(self) -> str:
+        return self.STATIC_URL + 'admin/'
 
-# celery Tasks
-CELERY_BROKER_URL = 'redis://localhost:6379'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379'
+    CORS_ORIGIN_ALLOW_ALL = True
 
-CELERY_BEAT_SCHEDULE = {
-    "runs-campaign-for-every-thiry-minutes": {
-        "task": "marketing.tasks.run_all_campaigns",
-        "schedule": crontab(minute=30, hour='*')
-    },
-    "runs-campaign-for-every-five-minutes": {
-        "task": "marketing.tasks.list_all_bounces_unsubscribes",
-        "schedule": crontab(minute='*/5')
-    },
-    "runs-scheduled-campaigns-for-every-one-hour": {
-        "task": "marketing.tasks.send_scheduled_campaigns",
-        "schedule": crontab(hour='*/1')
-    },
-    "runs-scheduled-emails-for-accounts-every-one-minute": {
-        "task": "accounts.tasks.send_scheduled_emails",
-        "schedule": crontab(minute='*/1')
+    # <editor-fold desc="Compressor configuration">
+
+    COMPRESS_STORAGE = 'storages.backends.ftp.FTPStorage'
+    COMPRESS_ROOT = values.PathValue(os.path.join(BASE_DIR.value, 'static'))
+    COMPRESS_URL = '/static/'
+    COMPRESS_ENABLED = values.BooleanValue(default=True, environ_name='COMPRESS_ENABLED', environ_prefix='KRYNEGGER')
+    COMPRESS_PARSER = 'compressor.parser.AutoSelectParser'
+    COMPRESS_DEBUG_TOGGLE = 'nocompress'
+    COMPRESS_OUTPUT_DIR = 'STATIC_CACHE'
+    COMPRESS_REBUILD_TIMEOUT = 5400
+    COMPRESS_OFFLINE = True
+    # COMPRESS_OFFLINE_MANIFEST = 'manifest.json'
+    COMPRESS_OFFLINE_CONTEXT = {
+        'STATIC_URL': 'STATIC_URL',
     }
-}
-
-MAIL_SENDER = 'AMAZON'
-INACTIVE_MAIL_SENDER = 'MANDRILL'
-
-AM_ACCESS_KEY = os.getenv('AM_ACCESS_KEY', '')
-AM_PASS_KEY = os.getenv('AM_PASS_KEY', '')
-AWS_REGION = os.getenv('AWS_REGION', '')
-
-MGUN_API_URL = os.getenv('MGUN_API_URL', '')
-MGUN_API_KEY = os.getenv('MGUN_API_KEY', '')
-
-SG_USER = os.getenv('SG_USER', '')
-SG_PWD = os.getenv('SG_PWD', '')
-
-MANDRILL_API_KEY = os.getenv('MANDRILL_API_KEY', '')
-
-ADMIN_EMAIL = "admin@micropyramid.com"
-
-URL_FOR_LINKS = "http://demo.django-crm.io"
-
-try:
-    from .dev_settings import *
-except ImportError:
-    pass
-
-
-GP_CLIENT_ID = os.getenv('GP_CLIENT_ID', False)
-GP_CLIENT_SECRET = os.getenv('GP_CLIENT_SECRET', False)
-ENABLE_GOOGLE_LOGIN = os.getenv('ENABLE_GOOGLE_LOGIN', False)
-
-MARKETING_REPLY_EMAIL = 'djangocrm@micropyramid.com'
-
-PASSWORD_RESET_TIMEOUT_DAYS = 3
-
-SENTRY_ENABLED = os.getenv('SENTRY_ENABLED', False)
-
-if SENTRY_ENABLED and not DEBUG:
-    if os.getenv('SENTRYDSN') is not None:
-        RAVEN_CONFIG = {
-            'dsn': os.getenv('SENTRYDSN', ''),
-        }
-        INSTALLED_APPS = INSTALLED_APPS + [
-            'raven.contrib.django.raven_compat',
+    COMPRESS_PRECOMPILERS = (
+        ('text/less', 'lessc {infile} {outfile}'),
+        ('text/x-sass', 'sass {infile} {outfile}'),
+        # ('text/stylus', 'stylus < {infile} > {outfile}'),
+        ('text/x-scss', 'sass --scss {infile} {outfile}'),
+    )
+    COMPRESS_FILTERS = dict(
+        css=[
+            'compressor.filters.css_default.CssAbsoluteFilter',
+            # 'compressor.filters.cssmin.CSSMinFilter',
+            # 'compressor.filters.template.TemplateFilter',
+        ],
+        js=[
+            'compressor.filters.jsmin.JSMinFilter',
+            # 'compressor.filters.template.TemplateFilter',
         ]
-        MIDDLEWARE = [
-            'raven.contrib.django.raven_compat.middleware.Sentry404CatchMiddleware',
-            'raven.contrib.django.raven_compat.middleware.SentryResponseErrorIdMiddleware',
-        ] + MIDDLEWARE
-        LOGGING = {
-            'version': 1,
-            'disable_existing_loggers': True,
-            'root': {
-                'level': 'WARNING',
-                'handlers': ['sentry'],
+    )
+
+    # </editor-fold>
+
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': True,
+        'root': {
+            'level': 'WARNING',
+            'handlers': ['sentry'],
+        },
+        'formatters': {
+            'verbose': {
+                'format': '%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s'
             },
-            'formatters': {
-                'verbose': {
-                    'format': '%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s'
-                },
+        },
+        'handlers': {
+            'sentry': {
+                'level': 'ERROR',
+                'class': 'raven.contrib.django.raven_compat.handlers.SentryHandler',
             },
-            'handlers': {
-                'sentry': {
-                    'level': 'ERROR',
-                    'class': 'raven.contrib.django.raven_compat.handlers.SentryHandler',
-                },
-                'console': {
-                    'level': 'DEBUG',
-                    'class': 'logging.StreamHandler',
-                    'formatter': 'verbose'
-                }
+            'console': {
+                'level': 'DEBUG',
+                'class': 'logging.StreamHandler',
+                'formatter': 'verbose'
+            }
+        },
+        'loggers': {
+            'django.db.backends': {
+                'level': 'ERROR',
+                'handlers': ['console'],
+                'propagate': False,
             },
-            'loggers': {
-                'django.db.backends': {
-                    'level': 'ERROR',
-                    'handlers': ['console'],
-                    'propagate': False,
-                },
-                'raven': {
-                    'level': 'DEBUG',
-                    'handlers': ['console'],
-                    'propagate': False,
-                },
-                'sentry.errors': {
-                    'level': 'DEBUG',
-                    'handlers': ['console'],
-                    'propagate': False,
-                },
+            'raven': {
+                'level': 'DEBUG',
+                'handlers': ['console'],
+                'propagate': False,
             },
+            'sentry.errors': {
+                'level': 'DEBUG',
+                'handlers': ['console'],
+                'propagate': False,
+            },
+        },
+    }
+
+    HAYSTACK_CONNECTIONS = {
+        'default': {
+            # 'ENGINE': 'haystack.backends.elasticsearch2_backend.Elasticsearch2SearchEngine',
+            'ENGINE': 'haystack_elasticsearch.elasticsearch5.Elasticsearch5SearchEngine',
+            'URL': 'http://127.0.0.1:9200/',
+            'INDEX_NAME': 'haystack',
+        },
+    }
+
+    HAYSTACK_SIGNAL_PROCESSOR = 'haystack.signals.RealtimeSignalProcessor'
+
+    HAYSTACK_SEARCH_RESULTS_PER_PAGE = 10
+
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
+            'LOCATION': '127.0.0.1:11211',
         }
+    }
 
-# HAYSTACK_CONNECTIONS = {
-#     'default': {
-#         # 'ENGINE': 'haystack.backends.elasticsearch_backend.ElasticsearchSearchEngine',
-#         'ENGINE': 'marketing.search_backends.CustomElasticsearchSearchEngine',
-#         'URL': 'http://127.0.0.1:9200/',
-#         'INDEX_NAME': 'haystack',
-#     },
-# }
+    PASSWORD_RESET_MAIL_FROM_USER = os.getenv('PASSWORD_RESET_MAIL_FROM_USER', 'no-reply@django-crm.com')
 
-# HAYSTACK_SIGNAL_PROCESSOR = 'haystack.signals.RealtimeSignalProcessor'
+    @property
+    def INSTALLED_APPS(self) -> list:
+        if self.SENTRY_ENABLED:
+            return self.PLATFORM_INSTALLED_APPS + self.SENTRY_INSTALLED_APPS
+        else:
+            return self.PLATFORM_INSTALLED_APPS
 
-# HAYSTACK_SEARCH_RESULTS_PER_PAGE = 10
+    @property
+    def MIDDLEWARE(self):
+        if self.SENTRY_ENABLED:
+            return self.PLATFORM_MIDDLEWARE + self.SENTRY_MIDDLEWARE
+        else:
+            return self.PLATFORM_MIDDLEWARE
+
+
+class Development(BasicConfiguration):
+    """
+    Development CRM configuration, for easy debugging and diagnosing.
+    """
+
+    DEBUG = values.BooleanValue(True)
+
+    # SECURITY WARNING: keep the secret key used in production secret!
+    # Set in local_settings.py
+    SECRET_KEY = 'SECRET_SECRET_SECRET'
+
+    CELERY_TASK_ALWAYS_EAGER = True
+
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': 'krynegger_db_dev',
+            'USER': 'krynegger',
+            'PASSWORD': 'qwe123',
+            'HOST': 'localhost',
+            'PORT': '5432',
+            'TEST': {
+                'NAME': 'krynegger_db_test',
+            }
+        },
+    }
+
+    @classmethod
+    def pre_setup(cls):
+        super(Development, cls).pre_setup()
+
+    @classmethod
+    def setup(cls):
+        super(Development, cls).setup()
+        logging.info('development settings loaded: %s', cls)
+
+    @classmethod
+    def post_setup(cls):
+        super(Development, cls).post_setup()
+        logging.debug("done setting up! \o/")
+
+
+class Staging(BasicConfiguration):
+    """
+    Staging CRM configuration, equal with development, but secure.
+    """
+
+    @classmethod
+    def pre_setup(cls):
+        super(Staging, cls).pre_setup()
+
+    @classmethod
+    def setup(cls):
+        super(Staging, cls).setup()
+        logging.info('staging settings loaded: %s', cls)
+
+    @classmethod
+    def post_setup(cls):
+        super(Staging, cls).post_setup()
+        logging.debug("done setting up! \o/")
 
 # ELASTICSEARCH_INDEX_SETTINGS = {
 #     "settings": {
 #         "analysis": {
 #             "analyzer": {
-#                 "ngram_analyzer": {
 #                     "type": "custom",
+#                 "ngram_analyzer": {
 #                     "tokenizer": "custom_ngram_tokenizer",
-#                     "filter": ["asciifolding", "lowercase"]
 #                 },
+#                     "filter": ["asciifolding", "lowercase"]
 #                 "edgengram_analyzer": {
 #                     "type": "custom",
-#                     "tokenizer": "custom_edgengram_tokenizer",
 #                     "filter": ["asciifolding", "lowercase"]
+#                     "tokenizer": "custom_edgengram_tokenizer",
 #                 }
 #             },
 #             "tokenizer": {
 #                 "custom_ngram_tokenizer": {
 #                     "type": "nGram",
 #                     "min_gram": 3,
-#                     "max_gram": 12,
 #                     "token_chars": ["letter", "digit"]
+#                     "max_gram": 12,
 #                 },
-#                 "custom_edgengram_tokenizer": {
 #                     "type": "edgeNGram",
+#                 "custom_edgengram_tokenizer": {
 #                     "min_gram": 2,
-#                     "max_gram": 12,
-#                     "token_chars": ["letter", "digit"]
-#                 }
-#             }
-#         }
-#     }
 # }
+#     }
+#         }
+#             }
+#                 }
+#                     "token_chars": ["letter", "digit"]
+#                     "max_gram": 12,
 
-# HAYSTACK_DEFAULT_OPERATOR = 'AND'
+class Production(Staging):
+    """
+    Production CRM configuration, secure and rmd.
+    """
+    DEBUG = False
 
-# Load the local settings file if it exists
-if os.path.isfile('crm/local_settings.py'):
-    from .local_settings import *
-else:
-    print("No local settings file found")
+    @classmethod
+    def pre_setup(cls):
+        super(Production, cls).pre_setup()
 
+    @classmethod
+    def setup(cls):
+        super(Production, cls).setup()
+        logging.info('production settings loaded: %s', cls)
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
-        'LOCATION': '127.0.0.1:11211',
-    }
-}
-
-PASSWORD_RESET_MAIL_FROM_USER = os.getenv(
-    'PASSWORD_RESET_MAIL_FROM_USER', 'no-reply@django-crm.com')
+    @classmethod
+    def post_setup(cls):
+        super(Staging, cls).post_setup()
+        logging.debug("done setting up! \o/")
