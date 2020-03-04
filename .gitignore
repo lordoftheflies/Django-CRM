@@ -13,9 +13,10 @@ main.css
 main.css.map
 ref.css
 ref.css.map
-.coveragerc
+.coverage
 .tox/
-.env
+.env/
+.crm
 docs/build
 htmlcov/
 
