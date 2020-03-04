@@ -123,17 +123,13 @@ class BasicConfiguration(Configuration):
     #         default='postgres://krynegger:qwe123@localhost/krynegger_database'
     #     )
     # )
+
     # Internationalization
     # https://docs.djangoproject.com/en/1.10/topics/i18n/
-
     LANGUAGE_CODE = values.Value('en-us', environ_prefix='KRYNEGGER')
-
     TIME_ZONE = values.Value('Europe/Budapest', environ_prefix='KRYNEGGER')
-
     USE_I18N = values.BooleanValue(True, environ_prefix='KRYNEGGER')
-
     USE_L10N = values.BooleanValue(True, environ_prefix='KRYNEGGER')
-
     USE_TZ = values.BooleanValue(True, environ_prefix='KRYNEGGER')
 
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -171,7 +167,11 @@ class BasicConfiguration(Configuration):
     AWS_REGION = os.getenv('AWS_REGION', '')
 
     # Currently 'normal' and 's3' storage implemented.
-    STORAGE_TYPE = values.Value('normal', environ_prefix='KRYNEGGER')
+    STORAGE_TYPE = values.Value(
+        default='normal',
+        environ_name='STORAGE_TYPE',
+        environ_prefix='KRYNEGGER'
+    )
 
     # Static files (CSS, JavaScript, Images)
     # https://docs.djangoproject.com/en/1.10/howto/static-files/
@@ -251,10 +251,22 @@ class BasicConfiguration(Configuration):
     COMPRESS_JS_FILTERS = ['compressor.filters.jsmin.JSMinFilter']
     COMPRESS_REBUILD_TIMEOUT = 5400
     CORS_ORIGIN_ALLOW_ALL = True
-    COMPRESS_ROOT = BASE_DIR.value + '/static/'
     COMPRESS_OUTPUT_DIR = 'CACHE'
-    COMPRESS_URL = STATIC_URL
-    COMPRESS_ENABLED = True
+
+    COMPRESS_ENABLED = values.BooleanValue(
+        default=True,
+        environ_name='COMPRESS_ENABLED',
+        environ_prefix='KRYNEGGER'
+    )
+
+    @property
+    def COMPRESS_URL(self) -> str:
+        return self.STATIC_URL
+
+    @property
+    def COMPRESS_ROOT(self):
+        return self.STATIC_ROOT
+
     COMPRESS_OFFLINE_CONTEXT = {
         'STATIC_URL': 'STATIC_URL',
     }
