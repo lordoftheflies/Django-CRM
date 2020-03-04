@@ -344,7 +344,7 @@ class BasicConfiguration(Configuration, SentryConfigurationMixin, MailConfigurat
     COMPRESS_OUTPUT_DIR = 'STATIC_CACHE'
     COMPRESS_REBUILD_TIMEOUT = 5400
     COMPRESS_OFFLINE = True
-    COMPRESS_OFFLINE_MANIFEST = 'manifest.json'
+    # COMPRESS_OFFLINE_MANIFEST = 'manifest.json'
     COMPRESS_OFFLINE_CONTEXT = {
         'STATIC_URL': 'STATIC_URL',
     }
