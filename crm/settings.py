@@ -1,13 +1,95 @@
 import logging
 import os
 
-import dj_database_url
 from celery.schedules import crontab
 from configurations import Configuration, values
 from django.core import validators
 
 
-class BasicConfiguration(Configuration):
+class URIValue(values.ValidationMixin, values.Value):
+    message = 'Cannot interpret URL value {0!r}'
+    validator = validators.URLValidator(schemes=[
+        'http', 'https',
+        'ftp', 'ftps',
+        'ldap', 'ldaps',
+        'smtp', 'smtps',
+        'redis',
+        'postgres',
+    ])
+
+
+class SentryConfigurationMixin(object):
+    SENTRY_ENABLED = values.BooleanValue(False)
+
+    @property
+    def SENTRY_INSTALLED_APPS(self) -> list:
+        return [
+            'raven.contrib.django.raven_compat',
+        ]
+
+    @property
+    def RAVEN_CONFIG(self) -> dict:
+        return dict(dsn=os.getenv('SENTRYDSN', ''))
+
+    @property
+    def SENTRY_MIDDLEWARE(self):
+        return [
+            'raven.contrib.django.raven_compat.middleware.Sentry404CatchMiddleware',
+            'raven.contrib.django.raven_compat.middleware.SentryResponseErrorIdMiddleware',
+        ]
+
+
+class MailConfigurationMixin(object):
+    MAIL_SENDER = 'AMAZON'
+    INACTIVE_MAIL_SENDER = 'MANDRILL'
+
+    MGUN_API_URL = os.getenv('MGUN_API_URL', '')
+    MGUN_API_KEY = os.getenv('MGUN_API_KEY', '')
+
+    SG_USER = os.getenv('SG_USER', '')
+    SG_PWD = os.getenv('SG_PWD', '')
+
+    MANDRILL_API_KEY = os.getenv('MANDRILL_API_KEY', '')
+
+    ADMIN_EMAIL = "admin@micropyramid.com"
+
+    URL_FOR_LINKS = "http://demo.django-crm.io"
+
+    GP_CLIENT_ID = os.getenv('GP_CLIENT_ID', False)
+    GP_CLIENT_SECRET = os.getenv('GP_CLIENT_SECRET', False)
+    ENABLE_GOOGLE_LOGIN = os.getenv('ENABLE_GOOGLE_LOGIN', False)
+
+    MARKETING_REPLY_EMAIL = 'djangocrm@micropyramid.com'
+
+    PASSWORD_RESET_TIMEOUT_DAYS = 3
+
+
+class CeleryConfigurationMixin(object):
+    # celery Tasks
+    CELERY_BROKER_URL = URIValue('redis://localhost:6379')
+    CELERY_RESULT_BACKEND = URIValue('redis://localhost:6379')
+
+    CELERY_BEAT_SCHEDULE = {
+        "runs-campaign-for-every-thiry-minutes": {
+            "task": "marketing.tasks.run_all_campaigns",
+            "schedule": crontab(minute=30, hour='*')
+        },
+        "runs-campaign-for-every-five-minutes": {
+            "task": "marketing.tasks.list_all_bounces_unsubscribes",
+            "schedule": crontab(minute='*/5')
+        },
+        "runs-scheduled-campaigns-for-every-one-hour": {
+            "task": "marketing.tasks.send_scheduled_campaigns",
+            "schedule": crontab(hour='*/1')
+        },
+        "runs-scheduled-emails-for-accounts-every-one-minute": {
+            "task": "accounts.tasks.send_scheduled_emails",
+            "schedule": crontab(minute='*/1')
+        }
+    }
+
+
+class BasicConfiguration(Configuration, SentryConfigurationMixin, MailConfigurationMixin, CeleryConfigurationMixin):
     """
     Basic CRM configuration, which satisfying the [ISO-27001](https://google.com), [ISO-270018](https://google.com),
     [SOC:AICPAA](https://google.com), and  [HIPAA](https://google.com) standards.
@@ -29,10 +111,10 @@ class BasicConfiguration(Configuration):
     ]
 
     # Application definition
-    LOGIN_REDIRECT_URL = values.PathValue('/', check_exists=False,)
-    LOGIN_URL = values.PathValue('/login/', check_exists=False,)
+    LOGIN_REDIRECT_URL = values.PathValue('/', check_exists=False, )
+    LOGIN_URL = values.PathValue('/login/', check_exists=False, )
 
-    INSTALLED_APPS = [
+    PLATFORM_INSTALLED_APPS = [
         'django.contrib.auth',
         'django.contrib.contenttypes',
         'django.contrib.messages',
@@ -76,7 +158,7 @@ class BasicConfiguration(Configuration):
         },
     ]
 
-    MIDDLEWARE = [
+    PLATFORM_MIDDLEWARE = [
         'django.middleware.security.SecurityMiddleware',
         'django.middleware.common.CommonMiddleware',
         'django.contrib.sessions.middleware.SessionMiddleware',
@@ -116,7 +198,8 @@ class BasicConfiguration(Configuration):
     #         'PORT': os.getenv('DB_PORT', '5432')
     #     }
     # }
-    DATABASES = values.DatabaseURLValue('postgres://krynegger:qwe123@localhost/krynegger_database', environ_prefix='KRYNEGGER')
+    DATABASES = values.DatabaseURLValue('postgres://krynegger:qwe123@localhost/krynegger_database',
+                                        environ_prefix='KRYNEGGER')
     # DATABASES = dict(
     #     default=dj_database_url.config(
     #         env='KRYNEGGER_DATABASE_PRIMARY_URL',
@@ -258,6 +341,7 @@ class BasicConfiguration(Configuration):
         environ_name='COMPRESS_ENABLED',
         environ_prefix='KRYNEGGER'
     )
+    COMPRESS_DEBUG_TOGGLE = False
 
     @property
     def COMPRESS_URL(self) -> str:
@@ -270,6 +354,9 @@ class BasicConfiguration(Configuration):
     COMPRESS_OFFLINE_CONTEXT = {
         'STATIC_URL': 'STATIC_URL',
     }
+
+    COMPRESS_OFFLINE = False
+
     COMPRESS_PRECOMPILERS = (
         ('text/less', 'lessc {infile} {outfile}'),
         ('text/x-sass', 'sass {infile} {outfile}'),
@@ -339,103 +426,22 @@ class BasicConfiguration(Configuration):
 
     PASSWORD_RESET_MAIL_FROM_USER = os.getenv('PASSWORD_RESET_MAIL_FROM_USER', 'no-reply@django-crm.com')
 
-
-class MailConfigurationMixin(object):
-    MAIL_SENDER = 'AMAZON'
-    INACTIVE_MAIL_SENDER = 'MANDRILL'
-
-    MGUN_API_URL = os.getenv('MGUN_API_URL', '')
-    MGUN_API_KEY = os.getenv('MGUN_API_KEY', '')
-
-    SG_USER = os.getenv('SG_USER', '')
-    SG_PWD = os.getenv('SG_PWD', '')
-
-    MANDRILL_API_KEY = os.getenv('MANDRILL_API_KEY', '')
-
-    ADMIN_EMAIL = "admin@micropyramid.com"
-
-    URL_FOR_LINKS = "http://demo.django-crm.io"
-
-    GP_CLIENT_ID = os.getenv('GP_CLIENT_ID', False)
-    GP_CLIENT_SECRET = os.getenv('GP_CLIENT_SECRET', False)
-    ENABLE_GOOGLE_LOGIN = os.getenv('ENABLE_GOOGLE_LOGIN', False)
-
-    MARKETING_REPLY_EMAIL = 'djangocrm@micropyramid.com'
-
-    PASSWORD_RESET_TIMEOUT_DAYS = 3
-
-
-class SentryConfigurationMixin(object):
-    SENTRY_ENABLED = values.BooleanValue(False)
-
-    @property
-    def SENTRY_INSTALLED_APPS(self) -> list:
-        return [
-            'raven.contrib.django.raven_compat',
-        ]
-
     @property
     def INSTALLED_APPS(self) -> list:
         if self.SENTRY_ENABLED:
-            return super.INSTALLED_APPS + self.SENTRY_INSTALLED_APPS
+            return self.PLATFORM_INSTALLED_APPS + self.SENTRY_INSTALLED_APPS
         else:
-            return super.INSTALLED_APPS
-
-    def RAVEN_CONFIG(self) -> dict:
-        return dict(dsn=os.getenv('SENTRYDSN', ''))
-
-    @property
-    def SENTRY_MIDDLEWARE(self):
-        return [
-            'raven.contrib.django.raven_compat.middleware.Sentry404CatchMiddleware',
-            'raven.contrib.django.raven_compat.middleware.SentryResponseErrorIdMiddleware',
-        ]
+            return self.PLATFORM_INSTALLED_APPS
 
     @property
     def MIDDLEWARE(self):
         if self.SENTRY_ENABLED:
-            return super.MIDDLEWARE + self.SENTRY_MIDDLEWARE
+            return self.PLATFORM_MIDDLEWARE + self.SENTRY_MIDDLEWARE
         else:
-            return super.MIDDLEWARE
+            return self.PLATFORM_MIDDLEWARE
 
 
-class URIValue(values.ValidationMixin, values.Value):
-    message = 'Cannot interpret URL value {0!r}'
-    validator = validators.URLValidator(schemes=[
-        'http', 'https',
-        'ftp', 'ftps',
-        'ldap', 'ldaps',
-        'smtp', 'smtps',
-        'redis',
-        'postgres',
-    ])
-
-class CeleryConfiguration(object):
-    # celery Tasks
-    CELERY_BROKER_URL = URIValue('redis://localhost:6379')
-    CELERY_RESULT_BACKEND = URIValue('redis://localhost:6379')
-
-    CELERY_BEAT_SCHEDULE = {
-        "runs-campaign-for-every-thiry-minutes": {
-            "task": "marketing.tasks.run_all_campaigns",
-            "schedule": crontab(minute=30, hour='*')
-        },
-        "runs-campaign-for-every-five-minutes": {
-            "task": "marketing.tasks.list_all_bounces_unsubscribes",
-            "schedule": crontab(minute='*/5')
-        },
-        "runs-scheduled-campaigns-for-every-one-hour": {
-            "task": "marketing.tasks.send_scheduled_campaigns",
-            "schedule": crontab(hour='*/1')
-        },
-        "runs-scheduled-emails-for-accounts-every-one-minute": {
-            "task": "accounts.tasks.send_scheduled_emails",
-            "schedule": crontab(minute='*/1')
-        }
-    }
-
-
-class Development(BasicConfiguration, MailConfigurationMixin, CeleryConfiguration, SentryConfigurationMixin):
+class Development(BasicConfiguration):
     """
     Development CRM configuration, for easy debugging and diagnosing.
     """
@@ -445,6 +451,8 @@ class Development(BasicConfiguration, MailConfigurationMixin, CeleryConfiguratio
     # SECURITY WARNING: keep the secret key used in production secret!
     # Set in local_settings.py
     SECRET_KEY = 'SECRET_SECRET_SECRET'
+
+    CELERY_TASK_ALWAYS_EAGER = True
 
     @classmethod
     def pre_setup(cls):
@@ -461,7 +469,7 @@ class Development(BasicConfiguration, MailConfigurationMixin, CeleryConfiguratio
         logging.debug("done setting up! \o/")
 
 
-class Staging(BasicConfiguration, MailConfigurationMixin, CeleryConfiguration, SentryConfigurationMixin):
+class Staging(BasicConfiguration):
     """
     Staging CRM configuration, equal with development, but secure.
     """

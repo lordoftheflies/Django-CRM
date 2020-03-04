@@ -1,6 +1,11 @@
 coverage==4.5.4
+coverage_enable_subprocess
+flake8
+twine
+check-manifest
 pytest==5.1.1
 pytest-django==3.5.1
 pytest-cov
 conventional-commit
-tox
+tox==3.14.5
+mock==4.0.1
