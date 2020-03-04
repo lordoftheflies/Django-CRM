@@ -15,7 +15,7 @@ if __name__ == "__main__":
         from pathlib import Path  # python3 only
         env_path = Path('.') / '.crm'
         load_dotenv(dotenv_path=env_path)
-        ENVIRONMENT_CONFIGURATION = os.getenv("KRYNEGGER_CONFIGURATION", 'Development')
+        ENVIRONMENT_CONFIGURATION = os.getenv("DJANGO_CONFIGURATION", 'Development')
     except BaseException as e:
         logging.error('Dotenv file could not loaded')
         # logging.exception(e)

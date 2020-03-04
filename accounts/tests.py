@@ -82,7 +82,6 @@ class AccountCreateTest(object):
 
 class AccountsCreateTestCase(AccountCreateTest, TestCase):
 
-    @pytest.mark.skip(reason="no way of currently testing this")
     def test_account_create_url(self):
         response = self.client.get('/accounts/create/', {
             'name': "account", 'email': "johndoe@example.com",

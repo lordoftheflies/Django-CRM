@@ -198,8 +198,11 @@ class BasicConfiguration(Configuration, SentryConfigurationMixin, MailConfigurat
     #         'PORT': os.getenv('DB_PORT', '5432')
     #     }
     # }
-    DATABASES = values.DatabaseURLValue('postgres://krynegger:qwe123@localhost/krynegger_database',
-                                        environ_prefix='KRYNEGGER')
+    DATABASES = values.DatabaseURLValue(
+        default='postgres://krynegger:qwe123@localhost/krynegger_database',
+        environ_name='DATABASES',
+        environ_prefix='KRYNEGGER'
+    )
     # DATABASES = dict(
     #     default=dj_database_url.config(
     #         env='KRYNEGGER_DATABASE_PRIMARY_URL',
@@ -243,10 +246,13 @@ class BasicConfiguration(Configuration, SentryConfigurationMixin, MailConfigurat
     AWS_ENABLED = True
     AWS_S3_SECURE_URLS = True
     # STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-    STATICFILES_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    STATICFILES_STORAGE = 'storages.backends.ftp.FTPStorage'
+    DEFAULT_FILE_STORAGE = 'storages.backends.ftp.FTPStorage'
+    FTP_STORAGE_LOCATION = 'ftp://lordoftheflies:Armageddon0@localhost:21'
+    # FTP_STORAGE_ENCODING = 'uft-8'
+    # DEFAULT_FILE_STORAGE = 'storages.backends.sftpstorage.SFTPStorage'
     STATIC_S3_PATH = "static"
-    COMPRESS_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
+
     AWS_REGION = os.getenv('AWS_REGION', '')
 
     # Currently 'normal' and 's3' storage implemented.
@@ -325,43 +331,42 @@ class BasicConfiguration(Configuration, SentryConfigurationMixin, MailConfigurat
     def ADMIN_MEDIA_PREFIX(self) -> str:
         return self.STATIC_URL + 'admin/'
 
-    COMPRESS_ROOT = values.PathValue(os.path.join(BASE_DIR.value, 'static'))
-
-    COMPRESS_CSS_FILTERS = [
-        'compressor.filters.css_default.CssAbsoluteFilter',
-        'compressor.filters.cssmin.CSSMinFilter'
-    ]
-    COMPRESS_JS_FILTERS = ['compressor.filters.jsmin.JSMinFilter']
-    COMPRESS_REBUILD_TIMEOUT = 5400
     CORS_ORIGIN_ALLOW_ALL = True
-    COMPRESS_OUTPUT_DIR = 'CACHE'
 
-    COMPRESS_ENABLED = values.BooleanValue(
-        default=True,
-        environ_name='COMPRESS_ENABLED',
-        environ_prefix='KRYNEGGER'
-    )
-    COMPRESS_DEBUG_TOGGLE = False
+    # <editor-fold desc="Compressor configuration">
 
-    @property
-    def COMPRESS_URL(self) -> str:
-        return self.STATIC_URL
-
-    @property
-    def COMPRESS_ROOT(self):
-        return self.STATIC_ROOT
-
+    COMPRESS_STORAGE = 'storages.backends.ftp.FTPStorage'
+    COMPRESS_ROOT = values.PathValue(os.path.join(BASE_DIR.value, 'static'))
+    COMPRESS_URL = '/static/'
+    COMPRESS_ENABLED = values.BooleanValue(default=True, environ_name='COMPRESS_ENABLED', environ_prefix='KRYNEGGER')
+    COMPRESS_PARSER = 'compressor.parser.AutoSelectParser'
+    COMPRESS_DEBUG_TOGGLE = 'nocompress'
+    COMPRESS_OUTPUT_DIR = 'STATIC_CACHE'
+    COMPRESS_REBUILD_TIMEOUT = 5400
+    COMPRESS_OFFLINE = True
+    COMPRESS_OFFLINE_MANIFEST = 'manifest.json'
     COMPRESS_OFFLINE_CONTEXT = {
         'STATIC_URL': 'STATIC_URL',
     }
-
-    COMPRESS_OFFLINE = False
-
     COMPRESS_PRECOMPILERS = (
         ('text/less', 'lessc {infile} {outfile}'),
         ('text/x-sass', 'sass {infile} {outfile}'),
-        ('text/x-scss', 'sass {infile} {outfile}'),
+        # ('text/stylus', 'stylus < {infile} > {outfile}'),
+        ('text/x-scss', 'sass --scss {infile} {outfile}'),
     )
+    COMPRESS_FILTERS = dict(
+        css=[
+            'compressor.filters.css_default.CssAbsoluteFilter',
+            # 'compressor.filters.cssmin.CSSMinFilter',
+            # 'compressor.filters.template.TemplateFilter',
+        ],
+        js=[
+            'compressor.filters.jsmin.JSMinFilter',
+            # 'compressor.filters.template.TemplateFilter',
+        ]
+    )
+
+    # </editor-fold>
 
     LOGGING = {
         'version': 1,
@@ -407,7 +412,8 @@ class BasicConfiguration(Configuration, SentryConfigurationMixin, MailConfigurat
 
     HAYSTACK_CONNECTIONS = {
         'default': {
-            'ENGINE': 'haystack.backends.elasticsearch2_backend.Elasticsearch2SearchEngine',
+            # 'ENGINE': 'haystack.backends.elasticsearch2_backend.Elasticsearch2SearchEngine',
+            'ENGINE': 'haystack_elasticsearch.elasticsearch5.Elasticsearch5SearchEngine',
             'URL': 'http://127.0.0.1:9200/',
             'INDEX_NAME': 'haystack',
         },
@@ -453,6 +459,20 @@ class Development(BasicConfiguration):
     SECRET_KEY = 'SECRET_SECRET_SECRET'
 
     CELERY_TASK_ALWAYS_EAGER = True
+
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': 'krynegger_db_dev',
+            'USER': 'krynegger',
+            'PASSWORD': 'qwe123',
+            'HOST': 'localhost',
+            'PORT': '5432',
+            'TEST': {
+                'NAME': 'krynegger_db_test',
+            }
+        },
+    }
 
     @classmethod
     def pre_setup(cls):

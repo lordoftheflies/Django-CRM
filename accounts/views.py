@@ -8,18 +8,14 @@ from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
-from django.views.generic import (CreateView, DeleteView, DetailView, FormView,
-                                  TemplateView, UpdateView, View)
+from django.views.generic import (CreateView, DeleteView, DetailView, TemplateView, UpdateView, View)
 
 from accounts.forms import (AccountAttachmentForm, AccountCommentForm,
                             AccountForm, EmailForm)
 from accounts.models import Account, Email, Tags
 from accounts.tasks import send_email, send_email_to_assigned_user
 from cases.models import Case
-from common.access_decorators_mixins import (MarketingAccessRequiredMixin,
-                                             SalesAccessRequiredMixin,
-                                             marketing_access_required,
-                                             sales_access_required)
+from common.access_decorators_mixins import (SalesAccessRequiredMixin)
 from common.models import Attachments, Comment, User
 from common.tasks import send_email_user_mentions
 from common.utils import (CASE_TYPE, COUNTRIES, CURRENCY_CODES, INDCHOICES,
@@ -42,7 +38,7 @@ class AccountsListView(SalesAccessRequiredMixin, LoginRequiredMixin, TemplateVie
                 Q(created_by=self.request.user) | Q(assigned_to=self.request.user)).distinct()
 
         if self.request.GET.get('tag', None):
-            queryset = queryset.filter(tags__in = self.request.GET.getlist('tag'))
+            queryset = queryset.filter(tags__in=self.request.GET.getlist('tag'))
 
         request_post = self.request.POST
         if request_post:
@@ -82,8 +78,8 @@ class AccountsListView(SalesAccessRequiredMixin, LoginRequiredMixin, TemplateVie
 
         search = False
         if (
-            self.request.POST.get('name') or self.request.POST.get('city') or
-            self.request.POST.get('industry') or self.request.POST.get('tag')
+                self.request.POST.get('name') or self.request.POST.get('city') or
+                self.request.POST.get('industry') or self.request.POST.get('tag')
         ):
             search = True
 
@@ -181,7 +177,7 @@ class CreateAccountView(SalesAccessRequiredMixin, LoginRequiredMixin, CreateView
         current_site = get_current_site(self.request)
         recipients = assigned_to_list
         send_email_to_assigned_user.delay(recipients, account_object.id, domain=current_site.domain,
-            protocol=self.request.scheme)
+                                          protocol=self.request.scheme)
 
         if self.request.POST.get("savenewform"):
             return redirect("accounts:new_account")
@@ -218,7 +214,8 @@ class CreateAccountView(SalesAccessRequiredMixin, LoginRequiredMixin, CreateView
         context["lead_count"] = context["leads"].count()
         if self.request.user.role != "ADMIN" and not self.request.user.is_superuser:
             context["lead_count"] = Lead.objects.filter(
-                Q(assigned_to__in=[self.request.user]) | Q(created_by=self.request.user)).exclude(status='closed').count()
+                Q(assigned_to__in=[self.request.user]) | Q(created_by=self.request.user)).exclude(
+                status='closed').count()
             context["contacts"] = Contact.objects.filter(
                 Q(assigned_to__in=[self.request.user]) | Q(created_by=self.request.user))
         context["contact_count"] = context["contacts"].count()
@@ -236,12 +233,12 @@ class AccountDetailView(SalesAccessRequiredMixin, LoginRequiredMixin, DetailView
         account_record = context["account_record"]
         if self.request.user.role != "ADMIN" and not self.request.user.is_superuser:
             if not ((self.request.user == account_record.created_by) or
-                (self.request.user in account_record.assigned_to.all())):
+                    (self.request.user in account_record.assigned_to.all())):
                 raise PermissionDenied
 
         comment_permission = True if (
-            self.request.user == account_record.created_by or
-            self.request.user.is_superuser or self.request.user.role == 'ADMIN'
+                self.request.user == account_record.created_by or
+                self.request.user.is_superuser or self.request.user.role == 'ADMIN'
         ) else False
 
         if self.request.user.is_superuser or self.request.user.role == 'ADMIN':
@@ -270,9 +267,9 @@ class AccountDetailView(SalesAccessRequiredMixin, LoginRequiredMixin, DetailView
             "case_priority": PRIORITY_CHOICE,
             "case_status": STATUS_CHOICE,
             'comment_permission': comment_permission,
-            'tasks':account_record.accounts_tasks.all(),
-            'invoices':account_record.accounts_invoices.all(),
-            'emails':account_record.sent_email.all(),
+            'tasks': account_record.accounts_tasks.all(),
+            'invoices': account_record.accounts_invoices.all(),
+            'emails': account_record.sent_email.all(),
             'users_mention': users_mention,
         })
         return context
@@ -349,7 +346,6 @@ class AccountUpdateView(SalesAccessRequiredMixin, LoginRequiredMixin, UpdateView
         else:
             account_object.teams.clear()
 
-
         if self.request.POST.getlist('teams', []):
             user_ids = Teams.objects.filter(id__in=self.request.POST.getlist('teams')).values_list('users', flat=True)
             assinged_to_users_ids = account_object.assigned_to.all().values_list('id', flat=True)
@@ -361,7 +357,7 @@ class AccountUpdateView(SalesAccessRequiredMixin, LoginRequiredMixin, UpdateView
         current_site = get_current_site(self.request)
         recipients = list(set(assigned_to_list) - set(previous_assigned_to_users))
         send_email_to_assigned_user.delay(recipients, account_object.id, domain=current_site.domain,
-            protocol=self.request.scheme)
+                                          protocol=self.request.scheme)
 
         if self.request.is_ajax():
             data = {'success_url': reverse_lazy(
@@ -380,12 +376,12 @@ class AccountUpdateView(SalesAccessRequiredMixin, LoginRequiredMixin, UpdateView
         context = super(AccountUpdateView, self).get_context_data(**kwargs)
         context["account_obj"] = self.object
         if self.request.user.role != "ADMIN" and not self.request.user.is_superuser:
-            if ((self.request.user != context['account_obj'].created_by ) and
-                (self.request.user not in context['account_obj'].assigned_to.all())):
+            if ((self.request.user != context['account_obj'].created_by) and
+                    (self.request.user not in context['account_obj'].assigned_to.all())):
                 raise PermissionDenied
         context["account_form"] = context["form"]
         if self.request.user.role != "ADMIN" and not self.request.user.is_superuser:
-            self.users = self.users.filter(Q(role='ADMIN') | Q(id__in=[self.request.user.id,]))
+            self.users = self.users.filter(Q(role='ADMIN') | Q(id__in=[self.request.user.id, ]))
         context["users"] = self.users
         context["industries"] = INDCHOICES
         context["countries"] = COUNTRIES
@@ -400,7 +396,8 @@ class AccountUpdateView(SalesAccessRequiredMixin, LoginRequiredMixin, UpdateView
         context["lead_count"] = context["leads"].count()
         if self.request.user.role != "ADMIN" and not self.request.user.is_superuser:
             context["lead_count"] = Lead.objects.filter(
-                Q(assigned_to__in=[self.request.user]) | Q(created_by=self.request.user)).exclude(status='closed').count()
+                Q(assigned_to__in=[self.request.user]) | Q(created_by=self.request.user)).exclude(
+                status='closed').count()
         context["teams"] = Teams.objects.all()
         return context
 
@@ -428,8 +425,8 @@ class AddCommentView(LoginRequiredMixin, CreateView):
         self.account = get_object_or_404(
             Account, id=request.POST.get('accountid'))
         if (
-            request.user == self.account.created_by or request.user.is_superuser or
-            request.user.role == 'ADMIN' or request.user in self.account.assigned_to.all()
+                request.user == self.account.created_by or request.user.is_superuser or
+                request.user.role == 'ADMIN' or request.user in self.account.assigned_to.all()
         ):
             form = self.get_form()
             if form.is_valid():
@@ -448,7 +445,7 @@ class AddCommentView(LoginRequiredMixin, CreateView):
         comment_id = comment.id
         current_site = get_current_site(self.request)
         send_email_user_mentions.delay(comment_id, 'accounts', domain=current_site.domain,
-            protocol=self.request.scheme)
+                                       protocol=self.request.scheme)
 
         return JsonResponse({
             "comment_id": comment.id, "comment": comment.comment,
@@ -483,7 +480,7 @@ class UpdateCommentView(LoginRequiredMixin, View):
         comment_id = self.comment_obj.id
         current_site = get_current_site(self.request)
         send_email_user_mentions.delay(comment_id, 'accounts', domain=current_site.domain,
-            protocol=self.request.scheme)
+                                       protocol=self.request.scheme)
         return JsonResponse({
             "comment_id": self.comment_obj.id,
             "comment": self.comment_obj.comment,
@@ -517,10 +514,10 @@ class AddAttachmentView(LoginRequiredMixin, CreateView):
         self.account = get_object_or_404(
             Account, id=request.POST.get('accountid'))
         if (
-            request.user == self.account.created_by or
-            request.user.is_superuser or
-            request.user.role == 'ADMIN' or
-            request.user in self.account.assigned_to.all()
+                request.user == self.account.created_by or
+                request.user.is_superuser or
+                request.user.role == 'ADMIN' or
+                request.user in self.account.assigned_to.all()
         ):
             form = self.get_form()
             if form.is_valid():
@@ -562,9 +559,9 @@ class DeleteAttachmentsView(LoginRequiredMixin, View):
         self.object = get_object_or_404(
             Attachments, id=request.POST.get("attachment_id"))
         if (
-            request.user == self.object.created_by or
-            request.user.is_superuser or
-            request.user.role == 'ADMIN'
+                request.user == self.object.created_by or
+                request.user.is_superuser or
+                request.user.role == 'ADMIN'
         ):
             self.object.delete()
             data = {"acd": request.POST.get("attachment_id")}
@@ -574,6 +571,7 @@ class DeleteAttachmentsView(LoginRequiredMixin, View):
             'error': "You don't have permission to delete this attachment."}
         return JsonResponse(data)
 
+
 @login_required
 def create_mail(request):
     if request.method == 'GET':
@@ -582,8 +580,9 @@ def create_mail(request):
         TIMEZONE_CHOICES = [(tz, tz) for tz in pytz.common_timezones]
         email_form = EmailForm(account=account)
         return render(request, 'create_mail_accounts.html', {'account_id': request.GET.get('account_id'),
-            'contacts_list': contacts_list, 'email_form': email_form,
-            "timezones": TIMEZONE_CHOICES, "settings_timezone": settings.TIME_ZONE})
+                                                             'contacts_list': contacts_list, 'email_form': email_form,
+                                                             "timezones": TIMEZONE_CHOICES,
+                                                             "settings_timezone": settings.TIME_ZONE})
 
     if request.method == 'POST':
         account = Account.objects.filter(id=request.POST.get('account_id')).first()
@@ -610,7 +609,8 @@ def create_mail(request):
             else:
                 return JsonResponse({'error': True, 'errors': form.errors})
         else:
-            return JsonResponse({'error':True, 'message': "Account does not exist."})
+            return JsonResponse({'error': True, 'message': "Account does not exist."})
+
 
 # @login_required
 # @sales_access_required
@@ -638,7 +638,7 @@ def get_contacts_for_account(request):
 def get_email_data_for_account(request):
     email_obj = Email.objects.filter(id=request.POST.get('email_account_id')).first()
     if email_obj:
-        ctx  = {}
+        ctx = {}
         ctx['subject'] = email_obj.message_subject
         ctx['body'] = email_obj.message_body
         ctx['created_on'] = email_obj.created_on
@@ -646,4 +646,4 @@ def get_email_data_for_account(request):
         ctx['error'] = False
         return JsonResponse(ctx)
     else:
-        return JsonResponse({'error': True, 'data' : 'No emails found.'})
+        return JsonResponse({'error': True, 'data': 'No emails found.'})
