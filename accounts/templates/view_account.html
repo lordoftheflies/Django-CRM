@@ -170,6 +170,7 @@
                 <div class="row marl">
                   <div class="col-md-12">
                     <form id="attachment_form" method="POST" enctype="multipart/form-data">
+                      {% csrf_token %}
                       <div class="form-group ">
                         <input type="file" class="form-control-file" cols="40" id="id_attachments" name="attachment">
                         <div>
@@ -224,6 +225,7 @@
                 <div class="row marl">
                   <div class="col-md-12">
                     <form id="comment_form" method="POST" enctype="multipart/form-data">
+                      {% csrf_token %}
                       <div class="form-group">
                         <textarea class="form-control mentions" textarea cols="40" rows="3" id="id_comments"
                           name="comment" placeholder="Submit Your Comments Here"></textarea>
@@ -280,6 +282,7 @@
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;</button>
                       </div>
                       <form id="comment_edit_form" method="POST">
+                        {% csrf_token %}
                         <div class="modal-body">
                           <div class="form-group">
                             <textarea class="form-control mentions" textarea cols="40" rows="3" id="id_editcomment"
@@ -306,6 +309,7 @@
       </div>
       <br>
       <form method='GET' class="accountdetails_row">
+        {% csrf_token %}
         <div class="table_container_row row marl no-gutters">
           <div class="col-md-12">
             <div class="card">
@@ -362,6 +366,7 @@
         </div>
       </form>
       <form method='GET' class="accountdetails_row">
+        {% csrf_token %}
         <div class="table_container_row row marl no-gutters">
           <div class="col-md-12">
             <div class="card">
@@ -415,6 +420,7 @@
         </div>
       </form>
       <form method='GET' class="accountdetails_row">
+        {% csrf_token %}
         <div class="table_container_row row marl no-gutters">
           <div class="col-md-12">
             <div class="card">
@@ -467,6 +473,7 @@
         </div>
       </form>
       <form method='GET' class="accountdetails_row">
+        {% csrf_token %}
         <div class="table_container_row row marl no-gutters">
           <div class="col-md-12">
             <div class="card">
@@ -519,6 +526,7 @@
         </div>
       </form>
       <form method='GET' class="accountdetails_row">
+        {% csrf_token %}
         <div class="table_container_row row marl no-gutters">
           <div class="col-md-12">
             <div class="card">
@@ -572,6 +580,7 @@
       </form>
 
       <form method='GET' class="accountdetails_row">
+        {% csrf_token %}
         <div class="table_container_row row marl no-gutters">
           <div class="col-md-12">
             <div class="card">

@@ -21,7 +21,7 @@ xlwt==1.3.0
 openpyxl==3.0.3
 pdfkit==0.6.1
 redis==3.4.1
-raven==6.10.0
+sentry-sdk==0.14.2
 django-haystack==3.0.b1
 django-haystack-elasticsearch==0.1.0
 elasticsearch==5.0.0

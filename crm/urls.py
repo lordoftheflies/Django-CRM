@@ -2,11 +2,17 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import views
 from django.urls import include, path
+
 from common.views import handler404, handler500
 
 app_name = 'crm'
 
+def trigger_error(request):
+    division_by_zero = 1 / 0
+
+
 urlpatterns = [
+    path('sentry-debug/', trigger_error),
     path('', include('common.urls', namespace="common")),
     path('', include('django.contrib.auth.urls')),
     path('marketing/', include('marketing.urls', namespace="marketing")),
@@ -26,9 +32,8 @@ urlpatterns = [
 
 ]
 
-if settings.DEBUG:
-    urlpatterns = urlpatterns + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
+urlpatterns = urlpatterns + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+urlpatterns = urlpatterns + static(settings.STATIC_URL, document_root=settings.STATIC_URL)
 
 handler404 = handler404
 handler500 = handler500

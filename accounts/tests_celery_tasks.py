@@ -12,7 +12,6 @@ from accounts.tests import AccountCreateTest
 
 class TestCeleryTasks(AccountCreateTest, TestCase):
 
-    @pytest.mark.skip(reason="no way of currently testing this")
     @override_settings(
         CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
         CELERY_ALWAYS_EAGER=True,

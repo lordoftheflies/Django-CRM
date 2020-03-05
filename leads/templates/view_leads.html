@@ -184,6 +184,7 @@
             <div class="row marl">
               <div class="col-md-12">
                 <form id="attachment_form" method="POST" enctype="multipart/form-data">
+                  {% csrf_token %}
                   <div class="form-group ">
                     <input type="file" class="form-control-file" cols="40" id="id_attachments" name="attachment">
                     <div>
@@ -242,6 +243,7 @@
               <div class="row marl">
                 <div class="col-md-12">
                   <form id="comment_form" method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
                     <div class="form-group ">
                       <textarea class="form-control mentions" textarea cols="40" rows="3" id="id_comments"
                         name="comment" placeholder="Submit Your Comments Here"></textarea>
@@ -303,6 +305,7 @@
 
                     </div>
                     <form id="comment_edit_form" method="POST">
+                      {% csrf_token %}
                       <div class="modal-body">
                         <div class="form-group">
                           <textarea class="form-control mentions" textarea cols="40" rows="3" id="id_editcomment"

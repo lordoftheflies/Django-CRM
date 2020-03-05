@@ -10,3 +10,8 @@ pytest-cov==2.8.1
 conventional-commit==0.3.3
 tox==3.14.5
 tox-venv==0.4.0
+
+beautifulsoup4==4.8.2
+lxml==4.5.0
+html5lib==1.0.1
+csscompressor==0.9.5

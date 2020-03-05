@@ -27,4 +27,4 @@ urlpatterns = [
     url(r'^email_unimp/(?P<pk>\d+)/$', views.email_unimp, name="email_unimp"),
     url(r'^email_view/(?P<pk>\d+)/$', views.email_view, name="email_view"),
 
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+]

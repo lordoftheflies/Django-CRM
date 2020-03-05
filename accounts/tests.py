@@ -82,7 +82,6 @@ class AccountCreateTest(object):
 
 class AccountsCreateTestCase(AccountCreateTest, TestCase):
 
-    @pytest.mark.skip(reason="no way of currently testing this")
     def test_account_create_url(self):
         response = self.client.get('/accounts/create/', {
             'name': "account", 'email': "johndoe@example.com",
@@ -97,7 +96,6 @@ class AccountsCreateTestCase(AccountCreateTest, TestCase):
             'industry': "SOFTWARE", 'description': "Testing"})
         self.assertEqual(response.status_code, 200)
 
-    @pytest.mark.skip(reason="no way of currently testing this")
     def test_account_create_html(self):
         response = self.client.get('/accounts/create/', {
             'name': "account", 'email': "accountEmail@example.com", 'phone': "",
@@ -114,14 +112,12 @@ class AccountsCreateTestCase(AccountCreateTest, TestCase):
 
 class AccountsListTestCase(AccountCreateTest, TestCase):
 
-    @pytest.mark.skip(reason="no way of currently testing this")
     def test_accounts_list(self):
         self.accounts = Account.objects.all()
         response = self.client.get(reverse('accounts:list'))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'accounts.html')
 
-    @pytest.mark.skip(reason="no way of currently testing this")
     def test_accounts_list_queryset(self):
         self.account = Account.objects.all()
         data = {'name': 'name', 'city': 'city',
@@ -145,7 +141,6 @@ class AccountsCountTestCase(AccountCreateTest, TestCase):
 
 class AccountsViewTestCase(AccountCreateTest, TestCase):
 
-    @pytest.mark.skip(reason="no way of currently testing this")
     def test_accounts_view(self):
         self.accounts = Account.objects.all()
         response = self.client.get(
@@ -169,7 +164,6 @@ class AccountsRemoveTestCase(AccountCreateTest, TestCase):
 
 class AccountsUpdateUrlTestCase(AccountCreateTest, TestCase):
 
-    @pytest.mark.skip(reason="no way of currently testing this")
     def test_accounts_update(self):
         response = self.client.get(
             '/accounts/' + str(self.account.id) + '/edit/', {
@@ -187,7 +181,6 @@ class AccountsUpdateUrlTestCase(AccountCreateTest, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'create_account.html')
 
-    @pytest.mark.skip(reason="no way of currently testing this")
     def test_accounts_update_post(self):
         response = self.client.post(
             '/accounts/' + str(self.account.id) + '/edit/',
@@ -205,13 +198,11 @@ class AccountsUpdateUrlTestCase(AccountCreateTest, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'create_account.html')
 
-    @pytest.mark.skip(reason="no way of currently testing this")
     def test_accounts_update_status(self):
         response = self.client.get(
             '/accounts/' + str(self.account.id) + '/edit/')
         self.assertEqual(response.status_code, 200)
 
-    @pytest.mark.skip(reason="no way of currently testing this")
     def test_accounts_update_html(self):
         response = self.client.get(
             '/accounts/' + str(self.account.id) + '/edit/')
@@ -220,7 +211,6 @@ class AccountsUpdateUrlTestCase(AccountCreateTest, TestCase):
 
 class AccountCreateEmptyFormTestCase(AccountCreateTest, TestCase):
 
-    @pytest.mark.skip(reason="no way of currently testing this")
     def test_account_creation_invalid_data(self):
         data = {'name': "", 'email': "", 'phone': "",
                 'website': "", 'industry': "",
@@ -307,7 +297,6 @@ class AttachmentTestCase(AccountCreateTest, TestCase):
             '/accounts/attachment/add/', {'accountid': self.account.id})
         self.assertEqual(response.status_code, 200)
 
-    @pytest.mark.skip(reason="no way of currently testing this")
     def test_attachment_valid(self):
         upload_file = open('static/images/user.png', 'rb')
         response = self.client.post(
@@ -345,7 +334,6 @@ class TagModelTest(TagCreateTest, TestCase):
 
 class TestCreateLeadPostView(AccountCreateTest, TestCase):
 
-    @pytest.mark.skip(reason="no way of currently testing this")
     def test_create_lead_post_status(self):
         upload_file = open('static/images/user.png', 'rb')
         response = self.client.post(reverse(
@@ -373,7 +361,6 @@ class TestCreateLeadPostView(AccountCreateTest, TestCase):
             HTTP_X_REQUESTED_WITH='XMLHttpRequest')
         self.assertEqual(response.status_code, 200)
 
-    @pytest.mark.skip(reason="no way of currently testing this")
     def test_update_lead_post_status(self):
         upload_file = open('static/images/user.png', 'rb')
         response = self.client.post(reverse(
@@ -403,7 +390,6 @@ class TestCreateLeadPostView(AccountCreateTest, TestCase):
 
 class test_account_forms(AccountCreateTest, TestCase):
 
-    @pytest.mark.skip(reason="no way of currently testing this")
     def test_account_form(self):
         self.client.login(email='janeAccount@example.com', password='password')
         response = self.client.get(reverse('accounts:new_account'))
@@ -528,7 +514,6 @@ class test_account_models(AccountCreateTest, TestCase):
 
 class test_account_views_list(AccountCreateTest, TestCase):
 
-    @pytest.mark.skip(reason="no way of currently testing this")
     def test_account_views(self):
         self.client.login(email='janeAccount@example.com', password='password')
         response = self.client.get(reverse('accounts:list'))
@@ -781,7 +766,6 @@ class test_account_views_list(AccountCreateTest, TestCase):
 
 class TestAccountUserMentions(AccountCreateTest, TestCase):
 
-    @pytest.mark.skip(reason="no way of currently testing this")
     def test_account_views(self):
         self.user_created_by = User.objects.create(
             first_name="jane",

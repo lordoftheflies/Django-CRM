@@ -1,9 +1,13 @@
 import logging
 import os
 
+import sentry_sdk
 from celery.schedules import crontab
 from configurations import Configuration, values
 from django.core import validators
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.django import DjangoIntegration
+from sentry_sdk.integrations.redis import RedisIntegration
 
 
 class URIValue(values.ValidationMixin, values.Value):
@@ -24,7 +28,7 @@ class SentryConfigurationMixin(object):
     @property
     def SENTRY_INSTALLED_APPS(self) -> list:
         return [
-            'raven.contrib.django.raven_compat',
+            # 'raven.contrib.django.raven_compat',
         ]
 
     @property
@@ -34,8 +38,8 @@ class SentryConfigurationMixin(object):
     @property
     def SENTRY_MIDDLEWARE(self):
         return [
-            'raven.contrib.django.raven_compat.middleware.Sentry404CatchMiddleware',
-            'raven.contrib.django.raven_compat.middleware.SentryResponseErrorIdMiddleware',
+            # 'raven.contrib.django.raven_compat.middleware.Sentry404CatchMiddleware',
+            # 'raven.contrib.django.raven_compat.middleware.SentryResponseErrorIdMiddleware',
         ]
 
 
@@ -115,14 +119,15 @@ class BasicConfiguration(Configuration, SentryConfigurationMixin, MailConfigurat
     LOGIN_URL = values.PathValue('/login/', check_exists=False, )
 
     PLATFORM_INSTALLED_APPS = [
+        # 'django.contrib.admin',
         'django.contrib.auth',
         'django.contrib.contenttypes',
         'django.contrib.messages',
         'django.contrib.sessions',
         'django.contrib.staticfiles',
         'simple_pagination',
-        'compressor',
         'haystack',
+        'compressor',
         'common',
         'accounts',
         'cases',
@@ -161,6 +166,7 @@ class BasicConfiguration(Configuration, SentryConfigurationMixin, MailConfigurat
     PLATFORM_MIDDLEWARE = [
         'django.middleware.security.SecurityMiddleware',
         'django.middleware.common.CommonMiddleware',
+        'django.middleware.csrf.CsrfViewMiddleware',
         'django.contrib.sessions.middleware.SessionMiddleware',
         'django.contrib.auth.middleware.AuthenticationMiddleware',
         'django.contrib.messages.middleware.MessageMiddleware',
@@ -170,13 +176,19 @@ class BasicConfiguration(Configuration, SentryConfigurationMixin, MailConfigurat
     TEMPLATES = [
         {
             'BACKEND': 'django.template.backends.django.DjangoTemplates',
-            'DIRS': [os.path.join(BASE_DIR.value, "templates"), ],
+            'DIRS': [
+                os.path.join(BASE_DIR.value, "templates"),
+            ],
             'APP_DIRS': True,
             'OPTIONS': {
                 'context_processors': [
                     'django.template.context_processors.debug',
                     'django.template.context_processors.request',
                     'django.contrib.auth.context_processors.auth',
+                    'django.template.context_processors.i18n',
+                    'django.template.context_processors.media',
+                    'django.template.context_processors.static',
+                    'django.template.context_processors.tz',
                     'django.contrib.messages.context_processors.messages',
                 ],
             },
@@ -235,23 +247,23 @@ class BasicConfiguration(Configuration, SentryConfigurationMixin, MailConfigurat
 
     AUTH_USER_MODEL = 'common.User'
 
-    DEFAULT_S3_PATH = "media"
+    DEFAULT_S3_PATH = "static"
     AWS_STORAGE_BUCKET_NAME = AWS_BUCKET_NAME = os.getenv('AWSBUCKETNAME', '')
     AM_ACCESS_KEY = AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID', '')
-    AM_PASS_KEY = AWS_SECRET_ACCESS_KEY = os.getenv(
-        'AWS_SECRET_ACCESS_KEY', '')
-    S3_DOMAIN = AWS_S3_CUSTOM_DOMAIN = str(
-        AWS_BUCKET_NAME) + '.s3.amazonaws.com'
+    AM_PASS_KEY = AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', '')
+    S3_DOMAIN = AWS_S3_CUSTOM_DOMAIN = str(AWS_BUCKET_NAME) + '.s3.amazonaws.com'
 
     AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
-    AWS_IS_GZIPPED = True
-    AWS_ENABLED = True
-    AWS_S3_SECURE_URLS = True
+    AWS_IS_GZIPPED = False
+    AWS_ENABLED = False
+    AWS_S3_SECURE_URLS = False
     # STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-    STATICFILES_STORAGE = 'storages.backends.ftp.FTPStorage'
+
+
     DEFAULT_FILE_STORAGE = 'storages.backends.ftp.FTPStorage'
-    FTP_STORAGE_LOCATION = 'ftp://lordoftheflies:Armageddon0@localhost:21'
-    # FTP_STORAGE_ENCODING = 'uft-8'
+    # STATICFILES_STORAGE = 'storages.backends.ftp.FTPStorage'
+    STATICFILES_STORAGE = 'crm.storages.StaticfilesFtpStorage'
+
     # DEFAULT_FILE_STORAGE = 'storages.backends.sftpstorage.SFTPStorage'
     STATIC_S3_PATH = "static"
 
@@ -269,7 +281,7 @@ class BasicConfiguration(Configuration, SentryConfigurationMixin, MailConfigurat
     @property
     def STATIC_ROOT(self):
         if self.STORAGE_TYPE == 's3':
-            return "/%s/" % STATIC_S3_PATH
+            return "/%s/" % self.STATIC_S3_PATH
         else:
             return values.PathValue(
                 default=os.path.join(self.BASE_DIR, 'static'),
@@ -292,14 +304,11 @@ class BasicConfiguration(Configuration, SentryConfigurationMixin, MailConfigurat
     @property
     def STATICFILES_DIRS(self) -> list:
         if self.STORAGE_TYPE == 's3':
-            return [self.BASE_DIR + '/static']
+            return [str(self.BASE_DIR) + '/static']
         else:
-            return values.ListValue(
-                default=[
-                ],
-                environ_name='STATICFILES_DIRS',
-                environ_prefix='KRYNEGGER'
-            )
+            return values.ListValue(default=[
+                os.path.join(self.BASE_DIR, 'frontend'),
+            ], environ_name='STATICFILES_DIRS', environ_prefix='KRYNEGGER')
 
     STATICFILES_FINDERS = [
         'django.contrib.staticfiles.finders.FileSystemFinder',
@@ -312,22 +321,15 @@ class BasicConfiguration(Configuration, SentryConfigurationMixin, MailConfigurat
         if self.STORAGE_TYPE == 's3':
             return '/%s/' % self.DEFAULT_S3_PATH
         else:
-            return values.PathValue(
-                default=os.path.join(self.BASE_DIR, 'media'),
-                environ_name='MEDIA_ROOT',
-                environ_prefix='KRYNEGGER'
-            )
+            return values.PathValue(default=os.path.join(self.BASE_DIR, 'media'), environ_name='MEDIA_ROOT',
+                                    environ_prefix='KRYNEGGER')
 
     @property
     def MEDIA_URL(self) -> str:
         if self.STORAGE_TYPE == 's3':
             return '//%s/%s/' % (self.S3_DOMAIN, self.DEFAULT_S3_PATH)
         else:
-            return values.Value(
-                default='/media/',
-                environ_name='MEDIA_URL',
-                environ_prefix='KRYNEGGER'
-            )
+            return values.Value(default='/media/', environ_name='MEDIA_URL', environ_prefix='KRYNEGGER')
 
     @property
     def ADMIN_MEDIA_PREFIX(self) -> str:
@@ -336,38 +338,53 @@ class BasicConfiguration(Configuration, SentryConfigurationMixin, MailConfigurat
     CORS_ORIGIN_ALLOW_ALL = True
 
     # <editor-fold desc="Compressor configuration">
+    FTP_STORAGE_LOCATION = 'ftp://lordoftheflies:Armageddon0@localhost:21' + str(BASE_DIR)
+    FTP_STORAGE_ENCODING = 'uft-8'
+    FTP_STORAGE_BASE_URL = '/static/'
+    # </editor-fold>
 
-    COMPRESS_STORAGE = 'storages.backends.ftp.FTPStorage'
+    # <editor-fold desc="Compressor configuration">
+
+    # COMPRESS_STORAGE = 'compressor.storage.GzipCompressorFileStorage'
     COMPRESS_ROOT = values.PathValue(os.path.join(BASE_DIR.value, 'static'))
     COMPRESS_URL = '/static/'
     COMPRESS_ENABLED = values.BooleanValue(default=True, environ_name='COMPRESS_ENABLED', environ_prefix='KRYNEGGER')
     COMPRESS_PARSER = 'compressor.parser.AutoSelectParser'
+    COMPRESS_STORAGE = 'compressor.storage.CompressorFileStorage'
     COMPRESS_DEBUG_TOGGLE = 'nocompress'
-    COMPRESS_OUTPUT_DIR = 'STATIC_CACHE'
+    COMPRESS_OUTPUT_DIR = 'CACHE'
     COMPRESS_REBUILD_TIMEOUT = 5400
     COMPRESS_OFFLINE = True
-    # COMPRESS_OFFLINE_MANIFEST = 'manifest.json'
+    COMPRESS_VERBOSE = True
+    COMPRESS_OFFLINE_MANIFEST = 'manifest.json'
     COMPRESS_OFFLINE_CONTEXT = {
         'STATIC_URL': 'STATIC_URL',
+        'MEDIA_URL': 'MEDIA_URL',
     }
     COMPRESS_PRECOMPILERS = (
         ('text/less', 'lessc {infile} {outfile}'),
         ('text/x-sass', 'sass {infile} {outfile}'),
-        # ('text/stylus', 'stylus < {infile} > {outfile}'),
         ('text/x-scss', 'sass --scss {infile} {outfile}'),
     )
-    COMPRESS_FILTERS = dict(
-        css=[
-            'compressor.filters.css_default.CssAbsoluteFilter',
-            # 'compressor.filters.cssmin.CSSMinFilter',
-            # 'compressor.filters.template.TemplateFilter',
-        ],
-        js=[
-            'compressor.filters.jsmin.JSMinFilter',
-            # 'compressor.filters.template.TemplateFilter',
-        ]
+    COMPRESS_CACHEABLE_PRECOMPILERS = (
+        ('text/less', 'lessc {infile} {outfile}'),
+        ('text/x-sass', 'sass {infile} {outfile}'),
+        ('text/x-scss', 'sass --scss {infile} {outfile}'),
     )
-
+    COMPRESS_TEMPLATE_FILTER_CONTEXT = {'STATIC_URL': STATIC_URL}
+    COMPRESS_URL_PLACEHOLDER = '/__compressor_url_placeholder__/'
+    COMPRESS_FILTERS = dict(css=[
+        'compressor.filters.template.TemplateFilter',
+        'compressor.filters.cssmin.CSSMinFilter',
+        'compressor.filters.css_default.CssAbsoluteFilter',
+    ], js=[
+        'compressor.filters.template.TemplateFilter',
+        'compressor.filters.jsmin.JSMinFilter',
+    ])
+    COMPRESSORS = dict(
+        css='compressor.css.CssCompressor',
+        js='compressor.js.JsCompressor',
+    )
     # </editor-fold>
 
     LOGGING = {
@@ -490,6 +507,18 @@ class Development(BasicConfiguration):
         super(Development, cls).post_setup()
         logging.debug("done setting up! \o/")
 
+        sentry_sdk.init(
+            dsn="https://fe6ac3e9757f4c6fbb82aca586a9c285@sentry.io/3744204",
+            integrations=[
+                DjangoIntegration(),
+                CeleryIntegration(),
+                RedisIntegration()
+            ],
+
+            # If you wish to associate users to errors (assuming you are using
+            # django.contrib.auth) you may enable sending PII data.
+            send_default_pii=True
+        )
 
 class Staging(BasicConfiguration):
     """
@@ -509,6 +538,7 @@ class Staging(BasicConfiguration):
     def post_setup(cls):
         super(Staging, cls).post_setup()
         logging.debug("done setting up! \o/")
+
 
 # ELASTICSEARCH_INDEX_SETTINGS = {
 #     "settings": {
